@@ -17,7 +17,7 @@ class HttpAuthMiddleware(object):
     def __init__(self, wsgi_app, realm=None, routes=()):
         self.wsgi_app = wsgi_app
         self.realm = realm or ''
-        self.routes = self.make_routes(routes)
+        self.routes = self.compile_routes(routes)
 
     def __call__(self, environ, start_response):
         if (self.should_require_authentication(environ) and
@@ -26,7 +26,7 @@ class HttpAuthMiddleware(object):
         else:
             return self.wsgi_app(environ, start_response)
 
-    def make_routes(self, routes):
+    def compile_routes(self, routes):
         return map(re.compile, routes)
 
     def should_require_authentication(self, environ):
@@ -66,9 +66,9 @@ class HttpAuthMiddleware(object):
         return uri
 
     def make_www_authenticate_header(self, realm=None):
-        return 'Digest realm="%s", nonce="%s"' % (realm, self.make_nonce())
+        return 'Digest realm="%s", nonce="%s"' % (realm, self.generate_nonce())
 
-    def make_nonce(self):
+    def generate_nonce(self):
         return sha256(os.urandom(1000) + str(time.time()))
 
     def parse_dict_header(self, value):
@@ -77,8 +77,7 @@ class HttpAuthMiddleware(object):
     def challenge(self, environ, start_response):
         start_response(
             '401 Authentication Required',
-            [('WWW-Authenticate', self.make_www_authenticate_header(self.realm)),
-             ('content-type', 'application/x-git-receive-pack-result')]
+            [('WWW-Authenticate', self.make_www_authenticate_header(self.realm))],
         )
         return ['<h1>401 - Authentication Required</h1>']
 
