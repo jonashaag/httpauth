@@ -4,6 +4,13 @@ httpauth
 a WSGI middleware that secures some/all routes using HTTP Digest Authentication.
 
 
+Installation
+------------
+::
+
+   pip install httpauth
+
+
 Using with credentials dictionary
 ---------------------------------
 ::
