@@ -1,3 +1,6 @@
+"""
+Copyright (c) 2012 Jonas Haag <jonas@lophus.org>. License: ISC
+"""
 import os
 import re
 import time
