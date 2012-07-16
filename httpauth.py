@@ -98,7 +98,7 @@ class DigestFileHttpAuthMiddleware(HttpAuthMiddleware):
         realm = None
         user_HA1_map = {}
 
-        for lineno, line in enumerate(filter(None, filelike.readlines()), 1):
+        for lineno, line in enumerate(filter(None, filelike.read().splitlines()), 1):
             try:
                 username, realm2, password_hash = line.split(':')
             except ValueError:

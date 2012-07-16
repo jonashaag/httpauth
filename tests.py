@@ -57,7 +57,7 @@ def request(app, url, nonce=None, username=None, password=None, method='GET'):
 def test_no_routes():
     app1 = DictHttpAuthMiddleware({'user': 'password'}, realm='myrealm',
                                   wsgi_app=wsgi_app)
-    app2 = DigestFileHttpAuthMiddleware(StringIO('user:myrealm:04cb1ff8d2b798abd28d64db0fffe896'),
+    app2 = DigestFileHttpAuthMiddleware(StringIO('user:myrealm:04cb1ff8d2b798abd28d64db0fffe896\n'),
                                         wsgi_app=wsgi_app)
 
     for app in [app1, app2]:
