@@ -1,5 +1,13 @@
 """
 Copyright (c) 2012 Jonas Haag <jonas@lophus.org>. License: ISC
+
+This implements Digest Auth as specified in RFC 2069, i.e. without the
+`qop` quality-of-protection, `cnonce` nonce count, ... options.
+
+References to the algorithm (HA1, HA2, nonce, ...) are taken from Wikipedia:
+
+    http://en.wikipedia.org/wiki/Digest_access_authentication
+
 """
 import os
 import re
@@ -17,6 +25,10 @@ def sha256(x):
 
 
 def reconstruct_uri(environ):
+    """
+    Reconstruct the relative part of the request URI. I.e. if the requested URL
+    is https://foo.bar/spam?eggs, ``reconstruct_uri`` returns ``'/spam?eggs'``.
+    """
     uri = environ['PATH_INFO']
     if environ.get('QUERY_STRING'):
         uri += '?' + environ['QUERY_STRING']
@@ -31,13 +43,19 @@ def generate_nonce():
 
 
 def make_auth_response(nonce, HA1, HA2):
+    """ response := md5(HA1 : nonce : HA2) """
     return md5(HA1 + ':' + nonce + ':' + HA2)
 
 def make_HA2(http_method, uri):
+    """ HA2 := http_method : uri (as reconstructed by ``reconstruct_uri``) """
     return md5(http_method + ':' + uri)
 
 
 def parse_dict_header(value):
+    """
+    Parses a HTTP dict header value -- i.e. ``"foo=bar, spam=eggs"`` is parsed
+    into ``{'foo': 'bar', 'spam': 'eggs'}``.
+    """
     return urllib2.parse_keqv_list(urllib2.parse_http_list(value))
 
 
@@ -46,6 +64,14 @@ class BaseHttpAuthMiddleware(object):
     Abstract HTTP Digest Auth middleware. Contains all the functionality
     except for credential validation  -- this happens using the ``make_HA1``
     method which needs to be overriden by subclasses.
+
+    `wsgi_app`
+       The WSGI app to be secured.
+    `realm`
+       The HTTP Auth realm to be displayed in the browser.
+    `routes`
+       (optional) A list of regular expressions that specify which URLs should
+       be secured. If not given, all routes are secured by default.
     """
     def __init__(self, wsgi_app, realm=None, routes=()):
         self.wsgi_app = wsgi_app
@@ -54,20 +80,27 @@ class BaseHttpAuthMiddleware(object):
 
     def __call__(self, environ, start_response):
         environ['httpauth.uri'] = reconstruct_uri(environ)
-        if (self.should_require_authentication(environ) and
+        if (self.should_require_authentication(environ['httpauth.uri']) and
             not self.authenticate(environ)):
+            # URL is secured and user hasn't sent authentication/wrong credentials.
             return self.challenge(environ, start_response)
         else:
+            # Wave-through to real WSGI app.
             return self.wsgi_app(environ, start_response)
 
     def compile_routes(self, routes):
         return map(re.compile, routes)
 
-    def should_require_authentication(self, environ):
+    def should_require_authentication(self, url):
+        """ Returns True if we should require authentication for the URL given """
         return (not self.routes # require auth for all URLs
-                or any(route.match(environ['httpauth.uri']) for route in self.routes))
+                or any(route.match(url) for route in self.routes))
 
     def authenticate(self, environ):
+        """
+        Returns True if the credentials passed in the Authorization header are
+        valid, False otherwise.
+        """
         try:
             hd = parse_dict_header(environ['HTTP_AUTHORIZATION'])
         except (KeyError, ValueError):
@@ -94,8 +127,13 @@ class BaseHttpAuthMiddleware(object):
 
 
 class DigestFileHttpAuthMiddleware(BaseHttpAuthMiddleware):
-    """ Reads credentials from an Apache-style .htdigest file """
+    """
+    Reads credentials from an Apache-style .htdigest file.
 
+    `filelike`
+       Any file-like object that has a ``.read()`` method.
+       Note: Don't pass filenames, only open files/file-likes.
+    """
     def __init__(self, filelike, **kwargs):
         realm, self.user_HA1_map = self.parse_htdigest_file(filelike)
         BaseHttpAuthMiddleware.__init__(self, realm=realm, **kwargs)
@@ -104,6 +142,15 @@ class DigestFileHttpAuthMiddleware(BaseHttpAuthMiddleware):
         return self.user_HA1_map.get(username, '')
 
     def parse_htdigest_file(self, filelike):
+        """
+        .htdigest files consist of lines in the following format::
+
+            username:realm:passwordhash
+
+        where both `username` and `realm` are plain-text without any colons
+        and `passwordhash` is the result of ``md5(username : realm : password)``
+        and thus `passwordhash` == HA1.
+        """
         realm = None
         user_HA1_map = {}
 
@@ -122,6 +169,10 @@ class DigestFileHttpAuthMiddleware(BaseHttpAuthMiddleware):
 
 
 class DictHttpAuthMiddleware(BaseHttpAuthMiddleware):
+    """
+    Reads credentials from ``user_password_map`` which is a
+    `username -> plaintext password` map.
+    """
     def __init__(self, user_password_map, **kwargs):
         self.user_password_map = user_password_map
         BaseHttpAuthMiddleware.__init__(self, **kwargs)
