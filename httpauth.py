@@ -16,14 +16,44 @@ def sha256(x):
     return hashlib.sha256(x).hexdigest()
 
 
-class HttpAuthMiddleware(object):
+def reconstruct_uri(environ):
+    uri = environ['PATH_INFO']
+    if environ.get('QUERY_STRING'):
+        uri += '?' + environ['QUERY_STRING']
+    return uri
+
+
+def make_www_authenticate_header(realm=None):
+    return 'Digest realm="%s", nonce="%s"' % (realm, generate_nonce())
+
+def generate_nonce():
+    return sha256(os.urandom(1000) + str(time.time()))
+
+
+def make_auth_response(nonce, HA1, HA2):
+    return md5(HA1 + ':' + nonce + ':' + HA2)
+
+def make_HA2(http_method, uri):
+    return md5(http_method + ':' + uri)
+
+
+def parse_dict_header(value):
+    return urllib2.parse_keqv_list(urllib2.parse_http_list(value))
+
+
+class BaseHttpAuthMiddleware(object):
+    """
+    Abstract HTTP Digest Auth middleware. Contains all the functionality
+    except for credential validation  -- this happens using the ``make_HA1``
+    method which needs to be overriden by subclasses.
+    """
     def __init__(self, wsgi_app, realm=None, routes=()):
         self.wsgi_app = wsgi_app
         self.realm = realm or ''
         self.routes = self.compile_routes(routes)
 
     def __call__(self, environ, start_response):
-        environ['httpauth.uri'] = self.reconstruct_uri(environ)
+        environ['httpauth.uri'] = reconstruct_uri(environ)
         if (self.should_require_authentication(environ) and
             not self.authenticate(environ)):
             return self.challenge(environ, start_response)
@@ -35,11 +65,11 @@ class HttpAuthMiddleware(object):
 
     def should_require_authentication(self, environ):
         return (not self.routes # require auth for all URLs
-                or any(route.search(environ['httpauth.uri']) for route in self.routes))
+                or any(route.match(environ['httpauth.uri']) for route in self.routes))
 
     def authenticate(self, environ):
         try:
-            hd = self.parse_dict_header(environ['HTTP_AUTHORIZATION'])
+            hd = parse_dict_header(environ['HTTP_AUTHORIZATION'])
         except (KeyError, ValueError):
             return False
 
@@ -52,44 +82,23 @@ class HttpAuthMiddleware(object):
         )
 
     def credentials_valid(self, response, http_method, uri, nonce, user):
-        return response == self.make_auth_response(nonce,
-                                                   self.make_HA1(user),
-                                                   self.make_HA2(http_method, uri))
-
-    def make_auth_response(self, nonce, HA1, HA2):
-        return md5(HA1 + ':' + nonce + ':' + HA2)
-
-    def make_HA2(self, http_method, uri):
-        return md5(http_method + ':' + uri)
-
-    def reconstruct_uri(elf, environ):
-        # TODO: copy from pep 3333
-        uri = environ['PATH_INFO']
-        if environ.get('QUERY_STRING'):
-            uri += '?' + environ['QUERY_STRING']
-        return uri
-
-    def make_www_authenticate_header(self, realm=None):
-        return 'Digest realm="%s", nonce="%s"' % (realm, self.generate_nonce())
-
-    def generate_nonce(self):
-        return sha256(os.urandom(1000) + str(time.time()))
-
-    def parse_dict_header(self, value):
-        return urllib2.parse_keqv_list(urllib2.parse_http_list(value))
+        return response == make_auth_response(nonce, self.make_HA1(user),
+                                              make_HA2(http_method, uri))
 
     def challenge(self, environ, start_response):
         start_response(
             '401 Authentication Required',
-            [('WWW-Authenticate', self.make_www_authenticate_header(self.realm))],
+            [('WWW-Authenticate', make_www_authenticate_header(self.realm))],
         )
         return ['<h1>401 - Authentication Required</h1>']
 
 
-class DigestFileHttpAuthMiddleware(HttpAuthMiddleware):
+class DigestFileHttpAuthMiddleware(BaseHttpAuthMiddleware):
+    """ Reads credentials from an Apache-style .htdigest file """
+
     def __init__(self, filelike, **kwargs):
         realm, self.user_HA1_map = self.parse_htdigest_file(filelike)
-        HttpAuthMiddleware.__init__(self, realm=realm, **kwargs)
+        BaseHttpAuthMiddleware.__init__(self, realm=realm, **kwargs)
 
     def make_HA1(self, username):
         return self.user_HA1_map.get(username, '')
@@ -112,11 +121,17 @@ class DigestFileHttpAuthMiddleware(HttpAuthMiddleware):
         return realm, user_HA1_map
 
 
-class DictHttpAuthMiddleware(HttpAuthMiddleware):
+class DictHttpAuthMiddleware(BaseHttpAuthMiddleware):
     def __init__(self, user_password_map, **kwargs):
         self.user_password_map = user_password_map
-        HttpAuthMiddleware.__init__(self, **kwargs)
+        BaseHttpAuthMiddleware.__init__(self, **kwargs)
 
     def make_HA1(self, username):
         password = self.user_password_map.get(username, '')
         return md5(username + ':' + self.realm + ':' + password)
+
+
+class AlwaysFailingAuthMiddleware(BaseHttpAuthMiddleware):
+    """ This thing just keeps asking for credentials all the time """
+    def authenticate(self, environ):
+        return False
