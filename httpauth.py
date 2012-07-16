@@ -23,6 +23,7 @@ class HttpAuthMiddleware(object):
         self.routes = self.compile_routes(routes)
 
     def __call__(self, environ, start_response):
+        environ['httpauth.uri'] = self.reconstruct_uri(environ)
         if (self.should_require_authentication(environ) and
             not self.authenticate(environ)):
             return self.challenge(environ, start_response)
@@ -34,7 +35,7 @@ class HttpAuthMiddleware(object):
 
     def should_require_authentication(self, environ):
         return (not self.routes # require auth for all URLs
-                or any(route.match(environ['PATH_INFO']) for route in self.routes))
+                or any(route.search(environ['httpauth.uri']) for route in self.routes))
 
     def authenticate(self, environ):
         try:
@@ -45,7 +46,7 @@ class HttpAuthMiddleware(object):
         return self.credentials_valid(
             hd['response'],
             environ['REQUEST_METHOD'],
-            self.reconstruct_uri(environ),
+            environ['httpauth.uri'],
             hd['nonce'],
             hd['Digest username'],
         )
