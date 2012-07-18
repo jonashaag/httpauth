@@ -29,7 +29,7 @@ def reconstruct_uri(environ):
     Reconstruct the relative part of the request URI. I.e. if the requested URL
     is https://foo.bar/spam?eggs, ``reconstruct_uri`` returns ``'/spam?eggs'``.
     """
-    uri = environ['PATH_INFO']
+    uri = environ.get('SCRIPT_NAME', '') + environ['PATH_INFO']
     if environ.get('QUERY_STRING'):
         uri += '?' + environ['QUERY_STRING']
     return uri
