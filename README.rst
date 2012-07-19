@@ -25,7 +25,9 @@ Using with credentials dictionary
 
 Using with a ``.htdigest`` file
 -------------------------------
-::
+
+
+.. code-block:: py
 
    secured_wsgi_app = httpauth.DigestFileHttpAuthMiddleware(
       open('/path/to/your/.htdigest'),
