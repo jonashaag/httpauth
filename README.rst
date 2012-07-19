@@ -13,7 +13,8 @@ Installation
 
 Using with credentials dictionary
 ---------------------------------
-::
+
+.. source-code:: py
 
    secured_wsgi_app = httpauth.DictHttpAuthMiddleware(
       {'user1': 'password1', 'user2': 'password2'},
