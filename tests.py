@@ -24,12 +24,29 @@ class Response:
     - headers
     - body
     """
+    def get_nonce(self):
+        return self.headers['WWW-Authenticate'][-64-1:-1]
 
 
 def wsgi_app(environ, start_response):
     start_response('200 OK', [])
     return [environ['PATH_INFO']]
 
+
+def make_dict_app(**kwargs):
+    return DictHttpAuthMiddleware(
+        {'user': 'password'},
+        wsgi_app=wsgi_app,
+        **kwargs
+    )
+
+
+def make_digest_app(**kwargs):
+    return DigestFileHttpAuthMiddleware(
+        StringIO('user:myrealm:04cb1ff8d2b798abd28d64db0fffe896\n'),
+        wsgi_app=wsgi_app,
+        **kwargs
+    )
 
 def request(app, url, nonce=None, username=None, password=None, method='GET'):
     response = Response()
@@ -55,10 +72,8 @@ def request(app, url, nonce=None, username=None, password=None, method='GET'):
 
 
 def test_no_routes():
-    app1 = DictHttpAuthMiddleware({'user': 'password'}, realm='myrealm',
-                                  wsgi_app=wsgi_app)
-    app2 = DigestFileHttpAuthMiddleware(StringIO('user:myrealm:04cb1ff8d2b798abd28d64db0fffe896\n'),
-                                        wsgi_app=wsgi_app)
+    app1 = make_dict_app(realm='myrealm')
+    app2 = make_digest_app()
 
     for app in [app1, app2]:
         # Without username/password
@@ -76,7 +91,7 @@ def test_no_routes():
             ('', 'password'),
             ('user', ''),
         ]:
-            nonce = response.headers['WWW-Authenticate'][-64-1:-1]
+            nonce = response.get_nonce()
             assert len(nonce) == 64
             response = request(app, '/foo/', nonce, username, password)
             assert response.status_code == 401
@@ -88,7 +103,7 @@ def test_no_routes():
 
 
 def test_with_routes():
-    app = DictHttpAuthMiddleware({'user': 'password'}, wsgi_app=wsgi_app, routes=['^/a'])
+    app = make_dict_app(routes=['^/a'])
     assert request(app, '/a').status_code == 401
     assert request(app, '/b').status_code == 200
 
@@ -110,3 +125,14 @@ def test_invalid_digestfile_1():
 def test_invalid_digestfile_2():
     DigestFileHttpAuthMiddleware(StringIO('u:realm:hash\nu2:realm2:hash2'),
                                  wsgi_app=wsgi_app)
+
+
+def test_ticket_1():
+    """ Reject non-existent users if empty password is sent """
+    app1 = make_dict_app()
+    app2 = make_digest_app()
+
+    for app in [app1, app2]:
+        response = request(app, '/')
+        nonce = response.get_nonce()
+        assert request(app, '/', nonce, 'not-a-user', '').status_code == 401

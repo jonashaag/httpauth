@@ -115,8 +115,12 @@ class BaseHttpAuthMiddleware(object):
         )
 
     def credentials_valid(self, response, http_method, uri, nonce, user):
-        return response == make_auth_response(nonce, self.make_HA1(user),
-                                              make_HA2(http_method, uri))
+        try:
+            HA1 = self.make_HA1(user)
+        except KeyError:
+            # Invalid user
+            return False
+        return response == make_auth_response(nonce, HA1, make_HA2(http_method, uri))
 
     def challenge(self, environ, start_response):
         start_response(
@@ -139,7 +143,7 @@ class DigestFileHttpAuthMiddleware(BaseHttpAuthMiddleware):
         BaseHttpAuthMiddleware.__init__(self, realm=realm, **kwargs)
 
     def make_HA1(self, username):
-        return self.user_HA1_map.get(username, '')
+        return self.user_HA1_map[username]
 
     def parse_htdigest_file(self, filelike):
         """
@@ -178,7 +182,7 @@ class DictHttpAuthMiddleware(BaseHttpAuthMiddleware):
         BaseHttpAuthMiddleware.__init__(self, **kwargs)
 
     def make_HA1(self, username):
-        password = self.user_password_map.get(username, '')
+        password = self.user_password_map[username]
         return md5(username + ':' + self.realm + ':' + password)
 
 
