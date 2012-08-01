@@ -15,6 +15,15 @@ import time
 import urllib2
 import hashlib
 
+standard_error = '''<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<HTML>
+  <HEAD>
+    <TITLE>Error</TITLE>
+    <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=utf-8">
+  </HEAD>
+  <BODY><H1>401 Unauthorized.</H1>
+  </BODY>
+</HTML>'''
 
 def md5(x):
     return hashlib.md5(x).hexdigest()
@@ -44,7 +53,10 @@ def generate_nonce():
 
 def make_auth_response(nonce, HA1, HA2):
     """ response := md5(HA1 : nonce : HA2) """
-    return md5(HA1 + ':' + nonce + ':' + HA2)
+    if nonce is None or HA1 is None or HA2 is None:
+        return None
+    else:
+        return md5(HA1 + ':' + nonce + ':' + HA2)
 
 def make_HA2(http_method, uri):
     """ HA2 := http_method : uri (as reconstructed by ``reconstruct_uri``) """
@@ -120,10 +132,10 @@ class BaseHttpAuthMiddleware(object):
 
     def challenge(self, environ, start_response):
         start_response(
-            '401 Authentication Required',
-            [('WWW-Authenticate', make_www_authenticate_header(self.realm))],
+            '401 Unauthorized',
+            [('WWW-Authenticate', make_www_authenticate_header(self.realm)),('Content-Type', 'text/html; charset=utf-8'), ('Content-Length', str(len(standard_error)))],
         )
-        return ['<h1>401 - Authentication Required</h1>']
+        return [standard_error]
 
 
 class DigestFileHttpAuthMiddleware(BaseHttpAuthMiddleware):
@@ -139,7 +151,7 @@ class DigestFileHttpAuthMiddleware(BaseHttpAuthMiddleware):
         BaseHttpAuthMiddleware.__init__(self, realm=realm, **kwargs)
 
     def make_HA1(self, username):
-        return self.user_HA1_map.get(username, '')
+        return self.user_HA1_map.get(username, None)
 
     def parse_htdigest_file(self, filelike):
         """
@@ -178,8 +190,11 @@ class DictHttpAuthMiddleware(BaseHttpAuthMiddleware):
         BaseHttpAuthMiddleware.__init__(self, **kwargs)
 
     def make_HA1(self, username):
-        password = self.user_password_map.get(username, '')
-        return md5(username + ':' + self.realm + ':' + password)
+        if username not in self.user_password:
+            return None
+        else:
+            password = self.user_password_map[username]
+            return md5(username + ':' + self.realm + ':' + password)
 
 
 class AlwaysFailingAuthMiddleware(BaseHttpAuthMiddleware):
