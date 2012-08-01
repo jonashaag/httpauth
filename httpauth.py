@@ -15,6 +15,15 @@ import time
 import urllib2
 import hashlib
 
+standard_error = '''<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<HTML>
+  <HEAD>
+    <TITLE>Error</TITLE>
+    <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=utf-8">
+  </HEAD>
+  <BODY><H1>401 Unauthorized.</H1>
+  </BODY>
+</HTML>'''
 
 def md5(x):
     return hashlib.md5(x).hexdigest()
@@ -123,10 +132,10 @@ class BaseHttpAuthMiddleware(object):
 
     def challenge(self, environ, start_response):
         start_response(
-            '401 Authentication Required',
-            [('WWW-Authenticate', make_www_authenticate_header(self.realm))],
+            '401 Unauthorized',
+            [('WWW-Authenticate', make_www_authenticate_header(self.realm)),('Content-Type', 'text/html; charset=utf-8'), ('Content-Length', str(len(standard_error)))],
         )
-        return ['<h1>401 - Authentication Required</h1>']
+        return [standard_error]
 
 
 class DigestFileHttpAuthMiddleware(BaseHttpAuthMiddleware):
