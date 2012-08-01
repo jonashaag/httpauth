@@ -44,7 +44,10 @@ def generate_nonce():
 
 def make_auth_response(nonce, HA1, HA2):
     """ response := md5(HA1 : nonce : HA2) """
-    return md5(HA1 + ':' + nonce + ':' + HA2)
+    if nonce is None or HA1 is None or HA2 is None:
+        return None
+    else:
+        return md5(HA1 + ':' + nonce + ':' + HA2)
 
 def make_HA2(http_method, uri):
     """ HA2 := http_method : uri (as reconstructed by ``reconstruct_uri``) """
@@ -139,7 +142,7 @@ class DigestFileHttpAuthMiddleware(BaseHttpAuthMiddleware):
         BaseHttpAuthMiddleware.__init__(self, realm=realm, **kwargs)
 
     def make_HA1(self, username):
-        return self.user_HA1_map.get(username, '')
+        return self.user_HA1_map.get(username, None)
 
     def parse_htdigest_file(self, filelike):
         """
@@ -178,8 +181,11 @@ class DictHttpAuthMiddleware(BaseHttpAuthMiddleware):
         BaseHttpAuthMiddleware.__init__(self, **kwargs)
 
     def make_HA1(self, username):
-        password = self.user_password_map.get(username, '')
-        return md5(username + ':' + self.realm + ':' + password)
+        if username not in self.user_password:
+            return None
+        else:
+            password = self.user_password_map[username]
+            return md5(username + ':' + self.realm + ':' + password)
 
 
 class AlwaysFailingAuthMiddleware(BaseHttpAuthMiddleware):
