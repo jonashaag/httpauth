@@ -12,13 +12,18 @@ References to the algorithm (HA1, HA2, nonce, ...) are taken from Wikipedia:
 import os
 import re
 import time
-import urllib2
 import hashlib
+try: # Python 3
+    from urllib.request import parse_http_list, parse_keqv_list
+except ImportError: # Python 2
+    from urllib2 import parse_http_list, parse_keqv_list
 
 
 def md5(x):
     return hashlib.md5(x).hexdigest()
 
+def md5_str(x):
+    return md5(x.encode('utf8'))
 
 def sha256(x):
     return hashlib.sha256(x).hexdigest()
@@ -39,16 +44,16 @@ def make_www_authenticate_header(realm=None):
     return 'Digest realm="%s", nonce="%s"' % (realm, generate_nonce())
 
 def generate_nonce():
-    return sha256(os.urandom(1000) + str(time.time()))
+    return sha256(os.urandom(1000) + str(time.time()).encode())
 
 
 def make_auth_response(nonce, HA1, HA2):
     """ response := md5(HA1 : nonce : HA2) """
-    return md5(HA1 + ':' + nonce + ':' + HA2)
+    return md5_str(HA1 + ':' + nonce + ':' + HA2)
 
 def make_HA2(http_method, uri):
     """ HA2 := http_method : uri (as reconstructed by ``reconstruct_uri``) """
-    return md5(http_method + ':' + uri)
+    return md5_str(http_method + ':' + uri)
 
 
 def parse_dict_header(value):
@@ -56,7 +61,7 @@ def parse_dict_header(value):
     Parses a HTTP dict header value -- i.e. ``"foo=bar, spam=eggs"`` is parsed
     into ``{'foo': 'bar', 'spam': 'eggs'}``.
     """
-    return urllib2.parse_keqv_list(urllib2.parse_http_list(value))
+    return parse_keqv_list(parse_http_list(value))
 
 
 class BaseHttpAuthMiddleware(object):
@@ -89,7 +94,7 @@ class BaseHttpAuthMiddleware(object):
             return self.wsgi_app(environ, start_response)
 
     def compile_routes(self, routes):
-        return map(re.compile, routes)
+        return [re.compile(route) for route in routes]
 
     def should_require_authentication(self, url):
         """ Returns True if we should require authentication for the URL given """
@@ -183,7 +188,7 @@ class DictHttpAuthMiddleware(BaseHttpAuthMiddleware):
 
     def make_HA1(self, username):
         password = self.user_password_map[username]
-        return md5(username + ':' + self.realm + ':' + password)
+        return md5_str(username + ':' + self.realm + ':' + password)
 
 
 class AlwaysFailingAuthMiddleware(BaseHttpAuthMiddleware):

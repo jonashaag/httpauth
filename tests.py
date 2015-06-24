@@ -1,20 +1,24 @@
 import re
-import urllib2
+try: # Python 3
+    from io import StringIO
+    from urllib.request import parse_http_list, parse_keqv_list
+except ImportError: # Python 2
+    from StringIO import StringIO
+    from urllib2 import parse_http_list, parse_keqv_list
 
-from StringIO import StringIO
-from httpauth import DictHttpAuthMiddleware, DigestFileHttpAuthMiddleware, md5
+from httpauth import DictHttpAuthMiddleware, DigestFileHttpAuthMiddleware, md5_str
 
 from nose.tools import raises
 
 
 def parse_dict_header(value):
-    return urllib2.parse_keqv_list(urllib2.parse_http_list(value))
+    return parse_keqv_list(parse_http_list(value))
 
 
 def make_auth_response(http_method, uri, realm, nonce, user, password):
-    HA1 = md5(':'.join([user, realm, password]))
-    HA2 = md5(':'.join([http_method, uri]))
-    return md5(':'.join([HA1, nonce, HA2]))
+    HA1 = md5_str(':'.join([user, realm, password]))
+    HA2 = md5_str(':'.join([http_method, uri]))
+    return md5_str(':'.join([HA1, nonce, HA2]))
 
 
 class Response:
