@@ -3,6 +3,9 @@ httpauth
 
 a WSGI middleware that secures some/all routes using HTTP Digest Authentication.
 
+.. image:: https://travis-ci.org/jonashaag/httpauth.svg?branch=master
+    :target: https://travis-ci.org/jonashaag/httpauth
+
 
 Installation
 ------------
