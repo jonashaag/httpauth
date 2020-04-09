@@ -17,6 +17,7 @@ try: # Python 3
     from urllib.request import parse_http_list, parse_keqv_list
 except ImportError: # Python 2
     from urllib2 import parse_http_list, parse_keqv_list
+    PY2 = True
 
 
 def md5(x):
@@ -132,7 +133,8 @@ class BaseHttpAuthMiddleware(object):
             '401 Authentication Required',
             [('WWW-Authenticate', make_www_authenticate_header(self.realm))],
         )
-        return ['<h1>401 - Authentication Required</h1>']
+        html = '<h1>401 - Authentication Required</h1>'
+        return [html if PY2 else html.encode()]
 
 
 class DigestFileHttpAuthMiddleware(BaseHttpAuthMiddleware):
