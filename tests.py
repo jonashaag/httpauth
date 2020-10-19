@@ -2,9 +2,11 @@ import re
 try: # Python 3
     from io import StringIO
     from urllib.request import parse_http_list, parse_keqv_list
+    PY2 = False
 except ImportError: # Python 2
     from StringIO import StringIO
     from urllib2 import parse_http_list, parse_keqv_list
+    PY2 = True
 
 from httpauth import DictHttpAuthMiddleware, DigestFileHttpAuthMiddleware, md5_str
 
@@ -71,7 +73,7 @@ def request(app, url, nonce=None, username=None, password=None, method='GET'):
                                                    nonce, username, password))
 
     iterable = app(env, start_response)
-    response.body = ''.join(iterable)
+    response.body = ('' if PY2 else b'').join(iterable)
     return response
 
 
@@ -103,7 +105,7 @@ def test_no_routes():
         # Correct credentials
         response = request(app, '/foo/?a=b', nonce, 'user', 'password')
         assert response.status_code == 200
-        assert 'foo' in response.body
+        assert ('foo' if PY2 else b'foo') in response.body
 
 
 def test_with_routes():
