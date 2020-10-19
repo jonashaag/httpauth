@@ -36,7 +36,7 @@ class Response:
 
 def wsgi_app(environ, start_response):
     start_response('200 OK', [])
-    return [environ['PATH_INFO']]
+    return [environ['PATH_INFO'].encode('ascii')]
 
 
 def make_dict_app(**kwargs):
@@ -73,7 +73,7 @@ def request(app, url, nonce=None, username=None, password=None, method='GET'):
                                                    nonce, username, password))
 
     iterable = app(env, start_response)
-    response.body = ('' if PY2 else b'').join(iterable)
+    response.body = b''.join(iterable)
     return response
 
 
@@ -87,8 +87,8 @@ def test_no_routes():
         assert response.status_code == 401
         assert re.match('Digest realm="myrealm", nonce="[a-z0-9]{64}"',
                         response.headers['WWW-Authenticate'])
-        assert 'Authentication Required' in response.body
-        assert '/foo/' not in response.body
+        assert b'Authentication Required' in response.body
+        assert b'/foo/' not in response.body
 
         # Wrong username/password
         for username, password in [
@@ -105,7 +105,7 @@ def test_no_routes():
         # Correct credentials
         response = request(app, '/foo/?a=b', nonce, 'user', 'password')
         assert response.status_code == 200
-        assert ('foo' if PY2 else b'foo') in response.body
+        assert b'foo' in response.body
 
 
 def test_with_routes():
