@@ -8,11 +8,11 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        python-version: ["2.7", "3.5"] # "3.6", "3.7", "3.8", "3.9", "3.10"]
+        python-version: ["2.7", "3.5", "3.6", "3.7", "3.8", "3.9", "3.10"]
         include:
           - os: ubuntu-18.04
             python-version: "3.3"
-          - os: win32
+          - os: windows-latest
             python-version: "3.0"
     steps:
       - uses: actions/checkout@v3
