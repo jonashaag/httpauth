@@ -3,12 +3,17 @@ on: push
 
 jobs:
   tests:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     strategy:
       matrix:
-        python-version: ["2.7.x", "3.4.x"] #, "3.6.x", "3.8.x", "3.9.x", "3.10.x"]
-
+        os: [ubuntu-latest]
+        python-version: ["2.7", "3.5"] # "3.6", "3.7", "3.8", "3.9", "3.10"]
+        include:
+          - os: ubuntu-18.04
+            python-version: "3.3"
+          - os: win32
+            python-version: "3.0"
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v3
