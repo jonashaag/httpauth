@@ -10,7 +10,7 @@ except ImportError: # Python 2
 
 from httpauth import DictHttpAuthMiddleware, DigestFileHttpAuthMiddleware, md5_str
 
-from nose.tools import raises
+import pytest
 
 
 def parse_dict_header(value):
@@ -121,16 +121,16 @@ def test_without_realm():
     assert 'Digest realm=""' in response.headers['WWW-Authenticate']
 
 
-@raises(ValueError)
 def test_invalid_digestfile_1():
-    DigestFileHttpAuthMiddleware(StringIO('u::realm:hash'),
-                                 wsgi_app=wsgi_app)
+    with pytest.raises(ValueError):
+        DigestFileHttpAuthMiddleware(StringIO('u::realm:hash'),
+                                     wsgi_app=wsgi_app)
 
 
-@raises(ValueError)
 def test_invalid_digestfile_2():
-    DigestFileHttpAuthMiddleware(StringIO('u:realm:hash\nu2:realm2:hash2'),
-                                 wsgi_app=wsgi_app)
+    with pytest.raises(ValueError):
+        DigestFileHttpAuthMiddleware(StringIO('u:realm:hash\nu2:realm2:hash2'),
+                                     wsgi_app=wsgi_app)
 
 
 def test_ticket_1():
