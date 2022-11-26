@@ -1,5 +1,5 @@
 httpauth.py
 setup.py
-tests.py
+test_httpauth.py
 README.rst
 Makefile
