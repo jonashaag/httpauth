@@ -7,13 +7,8 @@ jobs:
     timeout-minutes: 10
     strategy:
       matrix:
-        os: [ubuntu-latest]
-        python-version: ["2.7", "3.5", "3.12"]
-        include:
-          - os: ubuntu-18.04
-            python-version: "3.3"
-          - os: windows-latest
-            python-version: "3.0"
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.6", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
