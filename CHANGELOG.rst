@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.4 (May 16, 2024)
+------------------
+* Proper Python 3 support
+
 0.3 (Feb 7, 2016)
 -----------------
 * Python 3 support
