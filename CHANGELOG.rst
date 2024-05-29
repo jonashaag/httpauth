@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.4.1 (May 29, 2024)
+--------------------
+* Fix MANIFEST
+
 0.4 (May 16, 2024)
 ------------------
 * Proper Python 3 support
